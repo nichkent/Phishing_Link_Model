@@ -24,33 +24,45 @@ from multiprocessing import Process, Queue
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
-### The following functions are all for feature extraction ###
+
 def is_ip_address(domain):
     """
     Checks if the domain is an IP address.
     """
+    # Grab the ip address. Handle any issues by grabbing socket errors
     try:
         socket.inet_aton(domain)
         return True
     except socket.error:
         return False
 
+
 def get_domain(url):
     """
     Extracts the domain from a URL.
     """
+    # Grab the URL
     parsed_url = urlparse(url)
+
+    # Split the domain and return it in all lowercase
     domain = parsed_url.netloc.split(':')[0]
     return domain.lower()
+
 
 def is_allowed_by_robots(user_agent, url, timeout=5):
     """
     Checks if crawling is allowed by robots.txt.
     """
+    # Parse the main URL
     parsed_url = urlparse(url)
+
+    # Parse the robots.txt URL
     robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
+
+    # Use urllib.robotparser.RobotFileParser function to read through the robots.txt file
     rp = urllib.robotparser.RobotFileParser()
 
+    # Check if the webpage is responsive. Then check if there is a robots.txt, if not assume that we are allowed. If there is make sure we are allowed
     try:
         response = requests.get(robots_url, headers={'User-Agent': user_agent}, timeout=timeout)
         if response.status_code == 200:
@@ -63,6 +75,7 @@ def is_allowed_by_robots(user_agent, url, timeout=5):
     except Exception as e:
         logging.info(f"Exception fetching robots.txt for {url}: {e}. Assuming allowed.")
         return True
+
 
 def fetch_url(url, output_dir, timeout=5, user_agent='MyBot/1.0'):
     """
@@ -86,6 +99,7 @@ def fetch_url(url, output_dir, timeout=5, user_agent='MyBot/1.0'):
     ]
     logging.info(f"Fetching URL: {url}")
 
+    # Try to fetch the URL. Catch if it times out or a different error is thrown
     try:
         subprocess.run(command, check=True, timeout=timeout + 5)
         logging.info(f"Successfully fetched URL: {url}")
@@ -97,9 +111,10 @@ def fetch_url(url, output_dir, timeout=5, user_agent='MyBot/1.0'):
         logging.warning(f"Error fetching URL {url}: {e}")
         return None
 
+
 def extract_features(url, html_content):
     """
-    Extracts features from the HTML content of the URL.
+    Extracts features from the HTML content of the URL. 8 Features total being collected from the first redirect code
     """
     features = {}
     logging.info(f"Extracting features from URL: {url}")
@@ -202,6 +217,7 @@ def extract_features(url, html_content):
         logging.info(f"Successfully extracted features for URL: {url}")
         return features
 
+    # Exception to grab any errors during feature extraction for each URL
     except Exception as e:
         logging.error(f"Error during feature extraction for URL {url}: {e}")
         return None
@@ -214,9 +230,12 @@ def extract_features_with_timeout(url, html_content, timeout=10):
         features = extract_features(url, html_content)
         q.put(features)
 
+    # Create a queue of the current processes trying to extract features
     q = Queue()
     p = Process(target=worker, args=(q,))
     p.start()
+
+    # Time them out if they are taking too long (likely not responsive)
     p.join(timeout)
     if p.is_alive():
         logging.warning(f"Timeout occurred while extracting features for URL {url}")
@@ -225,6 +244,7 @@ def extract_features_with_timeout(url, html_content, timeout=10):
         return None
     else:
         return q.get()
+
 
 def process_url(row, output_dir, user_agent, timeout=5):
     """
@@ -237,7 +257,7 @@ def process_url(row, output_dir, user_agent, timeout=5):
     features['label'] = label
 
     try:
-        # Check robots.txt
+        # Check robots.txt file of the website
         allowed = is_allowed_by_robots(user_agent, url, timeout=timeout)
         if not allowed:
             logging.info(f"Disallowed by robots.txt: {url}")
@@ -261,6 +281,7 @@ def process_url(row, output_dir, user_agent, timeout=5):
         logging.error(f"Error processing URL {url}: {e}")
         return features
 
+
 def main():
     # Define the name of the webscraper
     user_agent = 'MyPhishingDetectorBot/1.0 (+mailto:nicholasiankent@gmail.com)'
@@ -268,7 +289,7 @@ def main():
     # Define the output file
     output_file = 'features_dataset.csv'
 
-    # Define the fields we are looking for and what to join the new features on
+    # Define the fields we are looking for and what to join the new features on. Will determine later which features are important to keep
     fieldnames = ['URL', 'label'] + [
         'num_subdomains', 'is_ip_address', 'has_at_symbol',
         'has_hyphen_in_domain', 'num_digits_in_url', 'double_slash_redirect', 'https_in_url',
@@ -288,7 +309,7 @@ def main():
     df = pd.read_csv('PhiUSIIL_Phishing_URL_Dataset.csv')
 
     # Desired sample size
-    sample_size = 10000  # Updated to 10,000 entries
+    sample_size = 10000
 
     # Calculate class proportions
     phishing_ratio = df['label'].mean()
