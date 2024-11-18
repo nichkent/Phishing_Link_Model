@@ -3,7 +3,7 @@
 ### To recreate our findings:
 ## Download the original dataset from Kaggle.com: 
 https://www.kaggle.com/datasets/joebeachcapital/phiusiil-phishing-url
-## In a secure environment, run feature_extraction_V2.py.
+## In a secure environment, run feature_extraction.py.
    Note: For our secure environment, a kali linux vm was created using Oracle Virtual Box. This virtual machine was given its own partition and had any interaction with the host machine disabled including shared folders, clipboards, etc. Afterward, the virtual machine was deleted along with all files. Unfortunately, due to limitations during the study we were unable to run the script on a secure network that was airgapped from our home network which would be advisable in future iterations of the project.
    
 ## feature_extraction.py results
